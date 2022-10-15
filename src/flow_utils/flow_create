@@ -1,14 +1,17 @@
+#!/usr/bin/env python
+
 from argparse import ArgumentParser
+from pathlib import Path
 import shutil
 
-from experiments import EXP_ROOT
+from flow_utils import SRC_ROOT
 
 p = ArgumentParser(description='Experiment manager')
 p.add_argument('--name',
-               default='exp',
+               required=True,
                help='Name of the new experiment (can be nested)')
 p.add_argument('--copy_from',
-               default='.template_exp',
+               default=str(Path(__file__).parent/'.template_exp'),
                help='Copy files from existing experiment')
 def mkdir_overwrite_or_abort(root_path, yes=False):
     """
@@ -35,10 +38,10 @@ def main():
     # Copy over stuff
     shutil.copytree(
         src=opt.copy_from,
-        dst=str(EXP_ROOT/opt.name),
+        dst=str(SRC_ROOT/opt.name),
     )
     print(f'Copied experiment from {opt.copy_from} to '\
-          + f'{str(EXP_ROOT/opt.name)}')
+          + f'{str(SRC_ROOT/opt.name)}')
 
 if __name__ == '__main__':
     main()

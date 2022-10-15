@@ -7,8 +7,11 @@ setup(name='pytorch-flow',
       description='a simple flow with multiple experiments',
       author='Mark Nishimura',
       author_email='nishimuramarky@yahoo.com',
+      package_dir={'': 'src'},
       packages=[
-          'core',
-          'experiments',
+          'flow_utils',
       ],
+      scripts=[
+          'src/flow_utils/flow_create'
+      ]
 )
