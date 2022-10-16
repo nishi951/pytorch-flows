@@ -8,10 +8,8 @@ class ExpPathManager:
     # Name of this experiment
     name: str
 
-    def __init__(self, filepath):
-        self.name = self.file2name(filepath, rel_dir=SRC_ROOT)
-
-    def file2name(self, filepath, rel_dir=None):
+    @staticmethod
+    def file2name(filepath, rel_dir=None):
         """Converts a full filename (usually __file__)
         string to the name of the file without .py
 
@@ -46,3 +44,10 @@ class ExpPathManager:
     @property
     def log_dir(self) -> Path:
         return LOGS_ROOT/self.name
+
+    def __repr__(self):
+        return repr({self.__class__.__name__: {
+            'name': self.name,
+            'log_dir': self.log_dir,
+            'exp_path': self.exp_path,
+        }})
