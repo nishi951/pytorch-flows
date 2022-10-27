@@ -28,3 +28,6 @@ From the `src` dir, run `flow_create --name [exp name]` (`--help` for options)
 - `data`: shared (raw) data for all experiments
   - NEVER modify raw data! All modifications should result in experiment-specific data
   - Also may include processed data, or scripts to download datasets programmatically
+
+## Configuration
+By default, `tyro` is used for configuring experiment runs.
