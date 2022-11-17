@@ -82,24 +82,37 @@ class _Registry:
                 f'Register called on unregistrable object. args: {args}'
             )
 
-    def configure_submodules(self, config):
-        """Apply a config to a class"""
-        config_dict = config.__dict__
-        for k, v in config_dict.items():
-            if type(v).__name__ in self._cfgname2clsname:
-                # Found an instantiable class
-                subconfig = v
-                cfgname = type(subconfig).__name__
-                clsname = self._cfgname2clsname[cfgname]
-                cls = self._clsname2cls[clsname]
-                subconfig_dict = self.configure_submodules(subconfig)
-                try:
-                    config_dict[k] = cls(**subconfig_dict)
-                except TypeError as e:
-                    print(f'Error when initializing {cls} from config '
-                          +f'{type(config).__name__}')
-                    raise e
-        return config_dict
+    def configure_submodules(self, struct):
+        if (is_dataclass(struct)
+            and type(struct).__name__ in self._cfgname2clsname):
+            cfgname = type(struct).__name__
+            clsname = self._cfgname2clsname[cfgname]
+            cls = self._clsname2cls[clsname]
+            config = self.configure_submodules(struct.__dict__)
+            try:
+                return cls(**config)
+            except TypeError as e:
+                print(f'Error when initializing {cls} from config '
+                    + f'{type(config).__name__}')
+                raise e
+        elif isinstance(struct, list):
+            return [
+                self.configure_submodules(v)
+                for v in struct
+            ]
+        elif isinstance(struct, dict):
+            return {
+                k: self.configure_submodules(v)
+                for k, v in struct.items()
+            }
+        elif is_dataclass(struct):
+            newstruct = type(struct)(
+                **self.configure_submodules(struct.__dict__)
+            )
+            return newstruct
+        else:
+            return struct
+
 
 
 registry = _Registry()  # Singleton
