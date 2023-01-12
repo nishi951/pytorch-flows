@@ -1,6 +1,11 @@
+"""
+Feel free to modify in any way.
+Copy this file to the flow
+
+"""
 from pathlib import Path
 
-FLOW_ROOT = Path(__file__).parent.parent.parent
-SRC_ROOT = FLOW_ROOT/'src'
-LOGS_ROOT = FLOW_ROOT/'logs'
-DATA_ROOT = FLOW_ROOT/'data'
+PROJ_ROOT = Path(__file__).parent.parent
+EXP_ROOT = PROJ_ROOT/'exp'
+LOGS_ROOT = PROJ_ROOT/'logs'
+DATA_ROOT = PROJ_ROOT/'data'

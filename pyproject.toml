@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flow-workspace"
+version = "0.2.0"
+description = "A simple, configurable, flow-based experiment manager"
+authors = [
+  {email = "nishimuramarky@yahoo.com"},
+  {name = "Mark Nishimura"}
+]
+dependencies = [
+  "tyro>=0.3.37",
+]
+
+[tools.setuptools]
+package-dir = [{"" = "src"}]
+packages = ["flow_utils", "config_utils"]
+
+[project.scripts]
+flow_init = "flow_utils.flow_init:hook"
+flow_create = "flow_utils.flow_create:hook"
