@@ -3,8 +3,8 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flow-workspace"
-version = "0.2.0"
+name = "flows-workspace"
+version = "0.3.0"
 description = "A simple, configurable, flow-based experiment manager"
 authors = [
   {email = "nishimuramarky@yahoo.com"},
