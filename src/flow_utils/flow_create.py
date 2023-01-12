@@ -7,7 +7,7 @@ import tyro
 
 def main(
         name: str,
-        copy_from: Path = Path(__file__).parent/'.template_exp',
+        copy_from: Path = Path(__file__).parent/'template_exp',
         copy_to_dir: Path = Path('.'),
 ):
     # Copy over stuff

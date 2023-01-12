@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, is_dataclass
 import functools
 import inspect
 from typing import Callable, Optional, Type, Union

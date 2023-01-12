@@ -3,7 +3,7 @@ from typing import Union, List, Tuple, Optional
 
 import tyro
 
-from flow_utils import SRC_ROOT
+from flows import PROJ_ROOT
 
 @dataclass
 class RunConfig:

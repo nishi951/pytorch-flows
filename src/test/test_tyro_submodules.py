@@ -2,6 +2,7 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Optional, Type, Union
 
 import tyro
+from tyro.conf import AvoidSubcommands
 
 from config_utils.registry import registry
 
@@ -44,7 +45,8 @@ class LossConfig:
     lam: float
     # Can also set to be optional, aka
     # module: Optional[Union[LossModule1Config, LossModule2Config]] = None
-    module: Union[LossModule1Config, LossModule2Config]
+
+    module: AvoidSubcommands[Union[LossModule1Config, LossModule2Config]]
 
 # register_with_config will expect the config dataclass
 # to be named [module name]Config
@@ -88,7 +90,6 @@ class Loss:
 
 if __name__ == '__main__':
     loss_config = tyro.cli(LossConfig)
-    loss_config = registry.configure_submodules(loss_config)
-    loss_fn = Loss(**loss_config)
+    loss_fn = registry.configure_submodules(loss_config)
     print(loss_fn)
     print(loss_fn.loss_module)
