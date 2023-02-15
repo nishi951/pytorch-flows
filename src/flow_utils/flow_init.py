@@ -5,6 +5,7 @@ import glob
 import os
 from pathlib import Path
 import shutil
+import sys
 
 from .path_utils import mkdir_overwrite_or_abort
 
@@ -30,15 +31,34 @@ class CleanCommand(Command):
                 print('removing %s' % os.path.relpath(path))
                 shutil.rmtree(path)
 
+def init_flow():
+    """Helper function
+    """
+    Path(root_path).mkdir(parents=True, exist_ok=True)
+    flow_init_file = Path(__file__).parent/'__init__.py'
+    shutil.copyfile(src=flow_init_file,
+                    dst=Path(flow_dir_name)/'__init__.py')
 def main(
         flow_dir_name: Path = Path('flows'),
 ):
     """Creates a flow directory, sets the root files, and
     installs a package so that the flow root is findable"""
-    mkdir_overwrite_or_abort(flow_dir_name)
-    flow_init_file = Path(__file__).parent/'__init__.py'
-    shutil.copyfile(src=flow_init_file,
-                    dst=Path(flow_dir_name)/'__init__.py')
+    root_path = flow_dir_name
+    if root_path.exists():
+        # Overwrite?
+        ola = input(
+            f'{root_path} exists. Overwrite/Leave/Abort? [o/l/a] '
+        ).lower()
+        if ola == 'o':
+            shutil.rmtree(root_path)
+            init_flow()
+        elif ola == 'l':
+            pass
+        else:
+            print('Aborting.')
+            sys.exit()
+    else:
+        init_flow()
     setup(
         name="flows-workspace-flow-dir",
         version="0.0.1",
@@ -50,7 +70,7 @@ def main(
     print(f'Initialized new flow dir at {flow_dir_name}')
 
 def hook():
-    main()
+    tyro.cli(main)
 
 if __name__ == '__main__':
     hook()
