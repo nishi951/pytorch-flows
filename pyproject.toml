@@ -16,7 +16,7 @@ dependencies = [
 
 [tools.setuptools]
 package-dir = [{"" = "src"}]
-packages = ["flow_utils", "config_utils", "pipeline"]
+packages = ["flow_utils", "config_utils", "pipeline_utils"]
 
 [project.scripts]
 flow_init = "flow_utils.flow_init:hook"

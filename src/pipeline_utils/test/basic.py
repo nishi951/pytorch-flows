@@ -3,9 +3,9 @@ from pathlib import Path
 
 import tyro
 
-from pipeline import DAG
+from pipeline_utils.pipeline import DAG
 
-
+# These functions could just come from other files
 def step1():
     print('Running step 1...')
     return 1
@@ -22,8 +22,6 @@ def step3(step1: int, step2: int):
 class Config:
     cache_file: Path = Path(__file__).parent/'./basic_cache.npz'
     """Cache file to store cached results"""
-    force_recompute: dict = {}
-    """"""
 
 
 def main():
@@ -33,7 +31,7 @@ def main():
 
     step1_node = pipeline.add_node(step1)
     step2_node = pipeline.add_node(step2,
-                                   kwargs={'step1': step1_node.output},
+                                   kwargs={'step1': step1_node},
                                    deps=[step1_node])
     step3_node = pipeline.add_node(step3,
                                    args=(step1_node.output, step2_node.output),
@@ -42,8 +40,8 @@ def main():
 
     pipeline.plot()
 
-    pipeline.load_cache()
-    pipeline.compute()
+    # pipeline.load_cache()
+    # pipeline.compute()
 
 if __name__ == '__main__':
     main()

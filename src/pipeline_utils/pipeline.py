@@ -86,39 +86,42 @@ class DAG:
     def plot(self):
         # Plot the DAG in an ASCII format
         nodes = {node.label: node for node in self.nodes}
-        edges = [(nodes[src_id], nodes[dest_id]) for src_id, dest_id in self.edges]
-        sorted_nodes = self.topological_sort()
-        node_order = {node.label: i for i, node in enumerate(sorted_nodes)}
+        edges = [(src_node.label, dst_node.label) for src_node, dst_node in self.edges]
+        sorted_nodes = [node.label for node in self.topological_sort()]
+        node_order = {node_label: i for i, node_label in enumerate(sorted_nodes)}
+        print(node_order)
         max_depth = max(node_order.values())
-        node_width = max(max(len(str(node.label)) for node in self.nodes), 7)
-        output_width = max(max(len(str(node.output)) for node in self.nodes if node.output is not None), 7)
+        node_width = max(max(len(str(node.label)) for node in self.nodes), 1)
+        #output_width = max(max(len(str(node.output)) for node in self.nodes if node.output is not None), 7)
+        output_width = 1
 
         lines = []
         for i in range(max_depth + 1):
             line = []
             for j in range(len(self.nodes)):
-                node = sorted_nodes[j]
-                if node_order[node.label] != i:
+                node_label = sorted_nodes[j]
+                if node_order[node_label] != i:
                     line.append(' ' * (node_width + output_width + 5))
                 else:
-                    id_str = str(node.label).ljust(node_width)
-                    if node.output is None:
-                        output_str = ' ' * output_width
-                    else:
-                        output_str = str(node.output).ljust(output_width)
+                    id_str = str(node_label).ljust(node_width)
+                    # if node.output is None:
+                    #     output_str = ' ' * output_width
+                    # else:
+                    #     output_str = str(node.output).ljust(output_width)
+                    output_str = '(out)'
                     line.append(f'{id_str} | {output_str}')
             lines.append(' '.join(line))
 
-        for src_node, dest_node in edges:
-            src_idx = sorted_nodes.index(src_node)
-            dest_idx = sorted_nodes.index(dest_node)
-            if node_order[src_node.label] >= node_order[dest_node.label]:
+        for src_node_label, dest_node_label in edges:
+            src_idx = sorted_nodes.index(src_node_label)
+            dest_idx = sorted_nodes.index(dest_node_label)
+            if node_order[src_node_label] >= node_order[dest_node_label]:
                 src_idx, dest_idx = dest_idx, src_idx
-            line = lines[node_order[src_node.label]]
-            start = node_width + output_width + 5 * src_idx
-            end = node_width + output_width + 5 * dest_idx + node_width
+            line = lines[node_order[src_node_label]]
+            start = node_width + output_width + 1 * src_idx
+            end = node_width + output_width + 1 * dest_idx + node_width
             line = line[:start] + '-' * (end - start) + line[end:]
-            lines[node_order[src_node.label]] = line
+            lines[node_order[src_node_label]] = line
 
         for line in lines:
             print(line)
@@ -138,13 +141,15 @@ class Node:
 
     @property
     def label(self):
-        return self.func.__name__
+        return (self.func.__name__, hash_data((self.args, self.kwargs))[:6])
 
     def compute_output(self):
         # Compute the output of the node by calling the stored function with the stored arguments
         self.output = self.func(*self.args, **self.kwargs)
         return self.output
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}{self.label}'
 
 def hash_data(data):
     data_md5 = hashlib.md5(json.dumps(data, sort_keys=True).encode('utf-8')).hexdigest()
