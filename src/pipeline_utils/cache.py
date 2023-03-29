@@ -39,3 +39,6 @@ class NpzCache:
     def hash_data(data):
         data_md5 = hashlib.md5(json.dumps(data, sort_keys=True).encode('utf-8')).hexdigest()
         return data_md5
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.filepath})'

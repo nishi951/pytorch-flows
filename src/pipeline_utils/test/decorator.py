@@ -1,6 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tyro
 
@@ -9,25 +11,30 @@ from pipeline_utils.cache import NpzCache
 
 @dataclass
 class Config:
-    cache_file: Path = Path(__file__).parent/'./basic_cache.npz'
-    """Cache file to store cached results"""
+    targets: list[str] = field(default_factory=list)
+    reruns: list[str] = field(default_factory=list)
     step3_arg: int = 3
 
 
 pipeline = DataPipeline()
+
 
 @pipeline.add(
     deps=[],
     cache=NpzCache('step1.npz',
                    load_callback=lambda x: x.item()),
 )
-def step1():
-    print('Running step 1...')
+def step1a():
+    print('Running step 1a...')
     return 1
 
+@pipeline.add(deps=[])
+def step1b():
+    print('Running step 1b...')
+    return 2
 
 @pipeline.add(
-    deps=[step1],
+    deps=[step1a],
     cache=NpzCache('step2.npz',
                    load_callback=lambda x: x.item()),
 )
