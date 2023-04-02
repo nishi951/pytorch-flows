@@ -20,11 +20,15 @@ class Node:
                  func: Callable,
                  cache: Optional[Any] = None,
                  state: NodeState = NodeState.DEFAULT,
+                 runtime: Optional[dict] = None,
 
     ):
         self.func = func
         self.cache = cache
         self.state = state
+
+        # For any variables governing runtime-dependent behavior e.g. devices
+        self.runtime = runtime or {}
 
     def __call__(self, *args, **kwargs):
         if self.state == NodeState.SKIP:
@@ -37,9 +41,8 @@ class Node:
             else:
                 # Try to load from the cache
                 output = self.cache.load(
-                    self.func,
-                    args,
-                    kwargs,
+                    data=(self.func, args, kwargs),
+                    runtime=self.runtime,
                 )
                 if output is not None:
                     return output
@@ -47,10 +50,8 @@ class Node:
                 output = self.func(*args, **kwargs)
             # Add to the cache
             self.cache.store(
-                self.func,
-                args,
-                kwargs,
-                output,
+                data=(self.func, args, kwargs, output),
+                runtime=self.runtime,
             )
 
             return output
@@ -67,6 +68,12 @@ class Node:
             + f'state={self.state}' \
             + ')'
 
+
+
+@dataclass
+class PipelineConfig:
+    targets: list[str] = field(default_factory=list)
+    reruns: list[str] = field(default_factory=list)
 
 
 class DataPipeline:
@@ -95,11 +102,20 @@ class DataPipeline:
 
         return node
 
-    def setup(self, targets, reruns):
+    def setup(self, config, runtime):
         """Configure nodes to execute or not execute according
         to the set of target nodes and the set of nodes to force
         reexecution on.
         """
+        rungraph = self.configure_nodestates(config.targets, config.reruns)
+        self.configure_node_runtimes(runtime)
+        return rungraph
+
+    def configure_node_runtimes(self, runtime):
+        for node in self.graph.nodes:
+            self.graph.nodes[node]['node'].runtime = runtime
+
+    def configure_nodestates(self, targets, reruns):
         assert nx.is_directed_acyclic_graph(self.graph)
         if len(targets) == 0 :
             return

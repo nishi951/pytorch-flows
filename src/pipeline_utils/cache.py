@@ -1,11 +1,20 @@
+from abc import ABC
 import hashlib
 import json
 from pathlib import Path
 from typing import Callable
 
-import numpy as np
+import numpy
 
-class NpzCache:
+class Cache(ABC):
+    def load(self, data, runtime):
+        return NotImplemented
+
+    def store(self, data, runtime):
+        return NotImplemented
+
+
+class NpzCache(Cache):
     def __init__(self,
                  filepath: Path,
                  load_callback: Callable = None,
@@ -18,18 +27,20 @@ class NpzCache:
         self.load_callback = load_callback or (lambda x: x)
         self.store_callback = store_callback or (lambda x: x)
 
-    def load(self, func, args, kwargs):
+    def load(self, data, runtime):
+        func, args, kwargs = data
         if not Path(self.filepath).is_file():
             return None
         id_ = self.gen_id(func, args, kwargs)
-        data = np.load(self.filepath, allow_pickle=True)
-        if id_ in data:
-            return self.load_callback(data[id_])
+        cached = np.load(self.filepath, allow_pickle=True)
+        if id_ in cached:
+            return self.load_callback(cached[id_], runtime)
         return None
 
-    def store(self, func, args, kwargs, output):
+    def store(self, data, runtime):
+        func, args, kwargs, output = data
         id_ = self.gen_id(func, args, kwargs)
-        output = self.store_callback(output)
+        output = self.store_callback(output, runtime)
         np.savez_compressed(self.filepath, **{id_: output})
 
     def gen_id(self, func, args, kwargs):

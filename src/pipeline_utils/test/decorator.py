@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
+from easydict import EasyDict
 import matplotlib.pyplot as plt
 import numpy as np
 import tyro
@@ -13,6 +14,7 @@ from pipeline_utils.cache import NpzCache
 class Config:
     targets: list[str] = field(default_factory=list)
     reruns: list[str] = field(default_factory=list)
+    device_idx: int = 0
     step3_arg: int = 3
 
 
@@ -65,8 +67,12 @@ def step4b(step2):
 
 def main():
     opt = tyro.cli(Config)
+    node_runtime = EasyDict({
+        'device_idx': opt.device_idx,
+    })
     pipeline.setup(targets=opt.targets,
-                   reruns=opt.reruns)
+                   reruns=opt.reruns,
+                   runtime=node_runtime)
     pipeline.visualize()
 
     step1a_out = step1a()
