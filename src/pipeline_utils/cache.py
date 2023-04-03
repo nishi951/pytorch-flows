@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
-import numpy
+import numpy as np
 
 class Cache(ABC):
     def load(self, data, runtime):

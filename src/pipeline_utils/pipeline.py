@@ -1,156 +1,183 @@
-"""Note: generated with help from ChatGPT"""
-import json
+from dataclasses import dataclass, field
+from enum import Enum, auto
 import hashlib
+import json
+from pathlib import Path
+from typing import Any, Callable, Optional, List, Type, Union
 
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 
-class DAG:
-    def __init__(self, force_recompute=None, cache_file=None):
-        self.nodes = []
-        self.edges = []
-        self.force_recompute = force_recompute or {}
-        self.cache_filename = cache_file or 'cache.npz'
 
-    def add_node(self, func, args=None, kwargs=None, deps=None):
-        args = args or ()
-        kwargs = kwargs or {}
-        deps = deps or []
-
-        for node in self.nodes:
-            if node.func == func and node.args == args:
-                return node
-
-        node = Node(func, args, kwargs)
-        self.nodes.append(node)
-
-        for input_node in deps:
-            self.edges.append((input_node, node))
-
-        return node
-
-    def topological_sort(self):
-        # Initialize the list of nodes with no incoming edges
-        roots = [node for node in self.nodes if not any(node == edge[1] for edge in self.edges)]
-
-        # Initialize the list to store the sorted nodes
-        sorted_nodes = []
-
-        # Process each node in the list of roots
-        while roots:
-            # Pop a root node from the list
-            root = roots.pop()
-
-            # Add the node to the sorted list
-            sorted_nodes.append(root)
-
-            # Remove outgoing edges from the node
-            outgoing_edges = [edge for edge in self.edges if edge[0] == root]
-            for edge in outgoing_edges:
-                self.edges.remove(edge)
-
-                # If the target node of the edge has no incoming edges, add it to the list of roots
-                if not any(edge[1] == next_edge[1] for next_edge in self.edges):
-                    roots.append(edge[1])
-
-        # If there are remaining edges, the graph contains a cycle
-        if self.edges:
-            raise ValueError("DAG contains a cycle")
-
-        # Return the sorted nodes
-        return sorted_nodes
-
-    def compute(self):
-        # Compute the outputs for all nodes in the DAG in topological order
-        for node in self.topological_sort():
-            if node.id in self.force_recompute:
-                node.output = None
-            if node.output is None:
-                node.compute_output()
-
-        # Save the computed outputs to a NumPy .npz file
-        cache = {node.id: node.output for node in self.nodes if node.output is not None}
-        np.savez_compressed(self.cache_filename, **cache)
-
-    def load_cache(self):
-        # Load the computed outputs from a NumPy .npz file
-        try:
-            cache = np.load(self.cache_filename)
-        except FileNotFoundError:
-            return
-
-        for node in self.nodes:
-            if node.id in cache and node.id not in self.force_recompute:
-                node.output = cache[node.id]
-
-
-    def plot(self):
-        # Plot the DAG in an ASCII format
-        nodes = {node.label: node for node in self.nodes}
-        edges = [(src_node.label, dst_node.label) for src_node, dst_node in self.edges]
-        sorted_nodes = [node.label for node in self.topological_sort()]
-        node_order = {node_label: i for i, node_label in enumerate(sorted_nodes)}
-        print(node_order)
-        max_depth = max(node_order.values())
-        node_width = max(max(len(str(node.label)) for node in self.nodes), 1)
-        #output_width = max(max(len(str(node.output)) for node in self.nodes if node.output is not None), 7)
-        output_width = 1
-
-        lines = []
-        for i in range(max_depth + 1):
-            line = []
-            for j in range(len(self.nodes)):
-                node_label = sorted_nodes[j]
-                if node_order[node_label] != i:
-                    line.append(' ' * (node_width + output_width + 5))
-                else:
-                    id_str = str(node_label).ljust(node_width)
-                    # if node.output is None:
-                    #     output_str = ' ' * output_width
-                    # else:
-                    #     output_str = str(node.output).ljust(output_width)
-                    output_str = '(out)'
-                    line.append(f'{id_str} | {output_str}')
-            lines.append(' '.join(line))
-
-        for src_node_label, dest_node_label in edges:
-            src_idx = sorted_nodes.index(src_node_label)
-            dest_idx = sorted_nodes.index(dest_node_label)
-            if node_order[src_node_label] >= node_order[dest_node_label]:
-                src_idx, dest_idx = dest_idx, src_idx
-            line = lines[node_order[src_node_label]]
-            start = node_width + output_width + 1 * src_idx
-            end = node_width + output_width + 1 * dest_idx + node_width
-            line = line[:start] + '-' * (end - start) + line[end:]
-            lines[node_order[src_node_label]] = line
-
-        for line in lines:
-            print(line)
+class NodeState(Enum):
+    DEFAULT = auto()
+    SKIP = auto()
+    RERUN = auto()
 
 
 class Node:
-    def __init__(self, func, args, kwargs):
+    def __init__(self,
+                 func: Callable,
+                 cache: Optional[Any] = None,
+                 state: NodeState = NodeState.DEFAULT,
+                 runtime: Optional[dict] = None,
+
+    ):
         self.func = func
-        self.args = args
-        self.kwargs = kwargs
-        self.output = None
+        self.cache = cache
+        self.state = state
+
+        # For any variables governing runtime-dependent behavior e.g. devices
+        self.runtime = runtime or {}
+
+    def __call__(self, *args, **kwargs):
+        if self.state == NodeState.SKIP:
+            return None
+
+        if self.cache:
+            output = None
+            if self.state == NodeState.RERUN:
+                output = self.func(*args, **kwargs)
+            else:
+                # Try to load from the cache
+                output = self.cache.load(
+                    data=(self.func, args, kwargs),
+                    runtime=self.runtime,
+                )
+                if output is not None:
+                    return output
+
+                output = self.func(*args, **kwargs)
+            # Add to the cache
+            self.cache.store(
+                data=(self.func, args, kwargs, output),
+                runtime=self.runtime,
+            )
+
+            return output
+        return self.func(*args, **kwargs)
 
     @property
-    def id(self):
-        return (self.func.__name__,
-                hash_data((self.args, self.kwargs)))
-
-    @property
-    def label(self):
-        return (self.func.__name__, hash_data((self.args, self.kwargs))[:6])
-
-    def compute_output(self):
-        # Compute the output of the node by calling the stored function with the stored arguments
-        self.output = self.func(*self.args, **self.kwargs)
-        return self.output
+    def name(self):
+        return self.func.__name__
 
     def __repr__(self):
-        return f'{self.__class__.__name__}{self.label}'
+        return f'{self.__class__.__name__}(' \
+            + f'func={self.name}, ' \
+            + f'cache={self.cache}, ' \
+            + f'state={self.state}' \
+            + ')'
 
-def hash_data(data):
-    data_md5 = hashlib.md5(json.dumps(data, sort_keys=True).encode('utf-8')).hexdigest()
-    return data_md5
+
+
+@dataclass
+class PipelineConfig:
+    targets: list[str] = field(default_factory=list)
+    reruns: list[str] = field(default_factory=list)
+
+
+class DataPipeline:
+    def __init__(self, force_recompute=None):
+        self.graph = nx.DiGraph()
+        self.force_recompute = force_recompute or {}
+
+
+    def add(self, deps, **node_kwargs):
+        """Decorator version"""
+        def wrapper(func):
+            node = Node(func, **node_kwargs)
+            self.add_node(node, deps)
+            return node
+        return wrapper
+
+    def add_node(
+            self,
+            node: Node,
+            deps: List[Node],
+        ):
+
+        self.graph.add_node(node.name, node=node)
+        for dep in deps:
+            self.graph.add_edge(dep.name, node.name)
+
+        return node
+
+    def setup(self, config, runtime):
+        """Configure nodes to execute or not execute according
+        to the set of target nodes and the set of nodes to force
+        reexecution on.
+        """
+        rungraph = self.configure_nodestates(config.targets, config.reruns)
+        self.configure_node_runtimes(runtime)
+        return rungraph
+
+    def configure_node_runtimes(self, runtime):
+        for node in self.graph.nodes:
+            self.graph.nodes[node]['node'].runtime = runtime
+
+    def configure_nodestates(self, targets, reruns):
+        assert nx.is_directed_acyclic_graph(self.graph)
+        if len(targets) == 0 :
+            return
+
+        all_ancestors = set()
+        for target in targets:
+            all_ancestors.update(nx.ancestors(self.graph, target))
+            all_ancestors.add(target)
+
+        for node in self.graph.nodes:
+            if node not in all_ancestors:
+                self.graph.nodes[node]['node'].state = NodeState.SKIP
+
+        rungraph = self.graph.subgraph(all_ancestors)
+        for rerun in reruns:
+            if rerun in rungraph:
+                self.graph.nodes[rerun]['node'].state = NodeState.RERUN
+                # Set all descendants to rerun
+                for descendant in nx.descendants(rungraph, rerun):
+                    self.graph.nodes[descendant]['node'].state = NodeState.RERUN
+            else:
+                print(
+                    f'Warning: Requested rerun for unnecessary node {rerun} for targets {targets}'
+                )
+
+        return rungraph
+
+    def visualize(self):
+        """Visualize pipeline as a multipartite networkx graph"""
+        # Compute partition as the minimum distance to a "root" node
+        roots = [node for node, d in self.graph.in_degree() if d == 0]
+        shortest_paths = {node: {'to_root': np.Inf} for node in self.graph.nodes}
+        for root in roots:
+            shortest_to_root = nx.single_source_shortest_path_length(self.graph, root)
+            for node, dist in shortest_to_root.items():
+                if dist < shortest_paths[node]['to_root']:
+                    shortest_paths[node]['to_root']= dist
+            shortest_paths[root]['to_root'] =0
+        nx.set_node_attributes(self.graph, shortest_paths)
+        pos = nx.multipartite_layout(
+            self.graph,
+            subset_key='to_root',
+        )
+
+        # Color
+        def status_cmap(node):
+            if node.state == NodeState.DEFAULT:
+                return 'blue'
+            elif node.state == NodeState.RERUN:
+                return 'red'
+            elif node.state == NodeState.SKIP:
+                return 'white'
+            else:
+                return 'black'
+
+        node_color = [status_cmap(node) for _, node in self.graph.nodes(data='node')]
+
+        nx.draw_networkx(
+            self.graph,
+            pos=pos,
+            node_color=node_color,
+
+        )
+        plt.show()

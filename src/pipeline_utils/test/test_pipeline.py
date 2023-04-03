@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tyro
 
-from pipeline_utils.pipeline_decorator import DataPipeline
+from pipeline_utils.pipeline import DataPipeline
 from pipeline_utils.cache import NpzCache
 
 @dataclass
@@ -20,11 +20,13 @@ class Config:
 
 pipeline = DataPipeline()
 
+def extract_singleton(data, runtime):
+    return data.item()
 
 @pipeline.add(
     deps=[],
     cache=NpzCache('step1.npz',
-                   load_callback=lambda x: x.item()),
+                   load_callback=extract_singleton),
 )
 def step1a():
     print('Running step 1a...')
@@ -38,7 +40,7 @@ def step1b():
 @pipeline.add(
     deps=[step1a],
     cache=NpzCache('step2.npz',
-                   load_callback=lambda x: x.item()),
+                   load_callback=extract_singleton),
 )
 def step2(step1: int):
     print(f'Running step 2... (received step1: {step1})')
@@ -48,7 +50,7 @@ def step2(step1: int):
 @pipeline.add(
     deps=[step1a, step2, step1b],
     cache=NpzCache('step3.npz',
-                   load_callback=lambda x: x.item()),
+                   load_callback=extract_singleton),
 )
 def step3(step1a: int, step2: int, step1b: int, step3_arg:int):
     print(f'Running step 3... (received step1: {step1a} and step2: {step2} and step1b: {step1b})')
@@ -67,12 +69,10 @@ def step4b(step2):
 
 def main():
     opt = tyro.cli(Config)
-    node_runtime = EasyDict({
+    runtime = EasyDict({
         'device_idx': opt.device_idx,
     })
-    pipeline.setup(targets=opt.targets,
-                   reruns=opt.reruns,
-                   runtime=node_runtime)
+    pipeline.setup(opt, runtime)
     pipeline.visualize()
 
     step1a_out = step1a()
