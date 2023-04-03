@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flows-workspace"
-version = "0.5.0"
+version = "0.5.1"
 description = "A simple, configurable, flow-based experiment manager"
 authors = [
   {email = "nishimuramarky@yahoo.com"},
@@ -12,6 +12,7 @@ authors = [
 ]
 dependencies = [
   "tyro>=0.3.37",
+  "networkx>=2.8.7"
 ]
 
 [tools.setuptools]
