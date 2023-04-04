@@ -19,19 +19,27 @@ object to store previously computed stuff, and a state that defines the runtime
 behavior according to whether the function is needed or not.
 
 ## Cache
-The cache defines the loading and storing behavior. A `NpzCache` object is
-provided to take advantage of the fast read/write of the numpy format.
-Furthermore, callbacks can be given (which take the data objects in question, as
-well as any runtime variables, which can be passed via the pipeline object) to
-control the storing and loading of cache variables.
+The cache defines the loading and storing behavior. 
+
+Cache types:
+- `NpzCache`: Uses `np.savez_compressed` and `np.load` as backend.
+  - Good for when
+- `PklCache`: Uses `cPickle` or `pickle` as backend.
 
 Various helper functions are also available in `pipeline.conversion` for moving
 structures of arrays on and off the GPU.
 
-## Runtime and configuration
-Using the `pipeline.PipelineConfig` dataclass as a template, we configure the
-pipeline to support `targets` and `reruns`. We further allow the pipeline to be
-configured with variables at runtime (e.g. the device indices of GPUs to load
-cached data to). All this functionality (i.e. anything related to the runtime
-behavior) should be put in the `pipeline.setup` method.
+Conversion supports the following nested structures:
+- dictionaries
+- tuples
+- dataclasses
+
+However, it does not support general nesting of objects (e.g. pytorch modules).
+
+### Hashing
+When determining if an array has been 
+
+### Saving and Loading CuPy/Torch arrays from GPU
+
+
 

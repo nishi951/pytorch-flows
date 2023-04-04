@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
+from .conversion import Np2Torch, Np2Cupy
+
 
 class NodeState(Enum):
     DEFAULT = auto()
@@ -28,9 +30,6 @@ class Node:
         self.cache = cache
         self.state = state
 
-        # For any variables governing runtime-dependent behavior e.g. devices
-        self.runtime = runtime or {}
-
     def __call__(self, *args, **kwargs):
         if self.state == NodeState.SKIP:
             return None
@@ -43,7 +42,6 @@ class Node:
                 # Try to load from the cache
                 output = self.cache.load(
                     data=(self.func, args, kwargs),
-                    runtime=self.runtime,
                 )
                 if output is not None:
                     return output
@@ -52,7 +50,6 @@ class Node:
             # Add to the cache
             self.cache.store(
                 data=(self.func, args, kwargs, output),
-                runtime=self.runtime,
             )
 
             return output
@@ -78,10 +75,8 @@ class PipelineConfig:
 
 
 class DataPipeline:
-    def __init__(self, force_recompute=None):
+    def __init__(self):
         self.graph = nx.DiGraph()
-        self.force_recompute = force_recompute or {}
-
 
     def add(self, deps, **node_kwargs):
         """Decorator version"""
@@ -103,20 +98,7 @@ class DataPipeline:
 
         return node
 
-    def setup(self, config, runtime):
-        """Configure nodes to execute or not execute according
-        to the set of target nodes and the set of nodes to force
-        reexecution on.
-        """
-        rungraph = self.configure_nodestates(config.targets, config.reruns)
-        self.configure_node_runtimes(runtime)
-        return rungraph
-
-    def configure_node_runtimes(self, runtime):
-        for node in self.graph.nodes:
-            self.graph.nodes[node]['node'].runtime = runtime
-
-    def configure_nodestates(self, targets, reruns):
+    def configure_deps(self, targets, reruns):
         assert nx.is_directed_acyclic_graph(self.graph)
         if len(targets) == 0 :
             return
@@ -143,6 +125,14 @@ class DataPipeline:
                 )
 
         return rungraph
+
+    def set_global_cache_dir(self, cache_dir: Path):
+        """Convenience function for setting the cache dirs of all nodes"""
+        for node in self.graph.nodes:
+            cache = self.graph.nodes[node]['node'].cache
+            if cache:
+                cache.cache_dir = cache_dir
+
 
     def visualize(self):
         """Visualize pipeline as a multipartite networkx graph"""

@@ -131,5 +131,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Npz files
+# Cache files
 *.npz
+*.npy
+*.pkl
