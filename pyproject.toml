@@ -12,7 +12,8 @@ authors = [
 ]
 dependencies = [
   "tyro>=0.3.37",
-  "networkx>=2.8.7"
+  "networkx>=2.8.7",
+  "metrohash>=0.3.3"
 ]
 
 [tools.setuptools]

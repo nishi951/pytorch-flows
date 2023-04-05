@@ -6,7 +6,7 @@ import struct
 import numpy as np
 
 from pipeline_utils.cache import hash_data, recursive_hash
-from pipeline_utils.conversion import to_nested_mapping
+from pipeline_utils.conversion import to_nested_mapping, recursive_map
 
 class TestClass:
     def __init__(self, var):
@@ -86,6 +86,13 @@ def test_metrohashing():
     # print(inst1_hash)
     # print(inst2_hash)
     # print(inst3_hash)
+
+    # This doesn't work because you need to hash the keys too
+    # hash_obj = metrohash.MetroHash64()
+    # recursive_map(to_nested_mapping(inst3), hash_obj.update)
+    # print(hash_obj.hexdigest())
+
+
 
 if __name__ == '__main__':
     test_class_hashing()

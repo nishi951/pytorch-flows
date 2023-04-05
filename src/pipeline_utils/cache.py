@@ -13,17 +13,27 @@ except ImportError:
 
 import numpy as np
 
-from .conversion import jsonify, recursive_map, to_nested_mapping, is_array, is_numeric
+#from .conversion import jsonify, recursive_map, to_nested_mapping, is_array, is_numeric
+from .conversion import (
+    DeviceArray,
+    to_nested_mapping,
+    to_np,
+    recursive_apply_inplace_with_stop,
+    is_numeric,
+    is_array,
+    is_leaf,
+    is_leaf_or_device_arr
+)
 
 TYPEKEY = 'type'
 
 class Cache(ABC):
     @abstractmethod
-    def load(self, data):
+    def store(self, data):
         return NotImplemented
 
     @abstractmethod
-    def store(self, data):
+    def load(self, data):
         return NotImplemented
 
 
@@ -32,8 +42,10 @@ def recursive_hash(data, hash_obj):
     apply = lambda x, hash_obj: recursive_hash(x, hash_obj)
     if is_numeric(data):
         hash_obj.update(str(data))
-    elif isinstance(data, str) or is_array(data):
+    elif isinstance(data, str):
         hash_obj.update(data)
+    elif is_array(data):
+        hash_obj.update(to_np(data))
     elif isinstance(data, Mapping):
         for k, v in data.items():
             recursive_hash(k, hash_obj)
@@ -78,7 +90,7 @@ class NpzCache(Cache):
 
     @property
     def filepath(self) -> Path:
-        return self._cache_dir/self._filename
+        return self.cache_dir/self.filename
 
     def load(self, data):
         func, args, kwargs = data
@@ -130,7 +142,21 @@ class PklCache(Cache):
 
     @property
     def filepath(self) -> Path:
-        return self._cache_dir/self._filename
+        return self.cache_dir/self.filename
+
+    def store(self, data):
+        """Stores as np arrays, even if inputs are ints or strs, etc."""
+        func, args, kwargs, output = data
+        id_ = self.gen_id(func, args, kwargs)
+        # Store output data types (modifies in place)
+        output = self.store_callback(output)
+        output = recursive_apply_inplace_with_stop(
+            output, DeviceArray.infer, is_leaf
+        )
+        self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.filepath, 'wb') as f:
+            pickle.dump({id_: output}, f)
+
 
     def load(self, data):
         func, args, kwargs = data
@@ -141,35 +167,18 @@ class PklCache(Cache):
             cached = pickle.load(f)
             if id_ in cached:
                 output = cached[id_]
+                output = recursive_apply_inplace_with_stop(
+                    output, DeviceArray.unpack, is_leaf_or_device_arr
+                )
+                output = self.load_callback(output)
                 return output
         return None
 
-    def store(self, data):
-        """Stores as np arrays, even if inputs are ints or strs, etc."""
-        func, args, kwargs, output = data
-        id_ = self.gen_id(func, args, kwargs)
-        # Store output data types
-        types = recursive_map(data, lambda a: (type(a).__name__, devicestr(a)))
-        output = recursive_map(data, tonp)
-        output = self.store_callback(output)
-        assert id_ != TYPEKEY
-        self.filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(self.filepath, 'wb') as f:
-            pickle.dump({id_: output}, f)
 
     def gen_id(self, func, args, kwargs):
-        return f'{func.__name__}({hash_data((args, kwargs))})'
+        return f'{func.__name__}({hash_data([list(args), kwargs])})'
 
     @staticmethod
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.filepath})'
-
-
-class HybridCache(Cache):
-    """Combines several cache modalities for different
-    output types
-    """
-    def __init__(self, cache_mapping):
-        self.cache_mapping = cache_mapping
