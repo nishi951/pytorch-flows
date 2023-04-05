@@ -16,17 +16,15 @@ class Config:
     reruns: list[str] = field(default_factory=list)
     device_idx: int = 0
     step3_arg: int = 3
-    cache_dir = 'cache'
+    cache_dir: Path = Path('cache')
 
 
 pipeline = DataPipeline()
 
-def extract_singleton(data):
-    return data.item()
 
 @pipeline.add(
     deps=[],
-    cache=PklCache('step1.npz')
+    cache=PklCache('step1.pkl')
 )
 def step1a():
     print('Running step 1a...')
@@ -39,7 +37,7 @@ def step1b():
 
 @pipeline.add(
     deps=[step1a],
-    cache=PklCache('step2.npz')
+    cache=PklCache('step2.pkl')
 )
 def step2(step1: int):
     print(f'Running step 2... (received step1: {step1})')
@@ -48,7 +46,7 @@ def step2(step1: int):
 
 @pipeline.add(
     deps=[step1a, step2, step1b],
-    cache=PklCache('step3.npz')
+    cache=PklCache('step3.pkl')
 )
 def step3(step1a: int, step2: int, step1b: int, step3_arg:int):
     print(f'Running step 3... (received step1: {step1a} and step2: {step2} and step1b: {step1b})')
@@ -71,8 +69,11 @@ def main():
     pipeline.configure_deps(opt.targets, opt.reruns)
     def set_device_idx(node):
         node.device_idx = opt.device_idx
+        return node
     def set_cache_dir(node):
-        node.cache.cache_dir = opt.cache_dir
+        if node.cache is not None:
+            node.cache.cache_dir = opt.cache_dir
+        return node
     pipeline.configure_nodes(func=set_device_idx)
     pipeline.configure_nodes(func=set_cache_dir)
     pipeline.visualize()

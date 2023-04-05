@@ -75,6 +75,45 @@ def recursive_map_pair(data1, data2, func):
     return apply(data.__dict__)
 
 
+
+def recursive_apply_inplace_with_stop(data, func, stop_cond):
+    """Recursive performs func on the items of data
+    Does operation in-place, i.e. without copying data.
+    stops when stopping criterion is satisfied.
+    """
+    apply = partial(recursive_apply_inplace_with_stop,
+                    func=func,
+                    stop_cond=stop_cond)
+    if (stop_cond(data)):
+        return func(data)
+    elif isinstance(data, Mapping):
+        for k, v in data.items():
+            data[k] = apply(v)
+        return data
+    elif isinstance(data, list):
+        for i, v in enumerate(data):
+            data[i] = apply(v)
+        return data
+    elif isinstance(data, tuple):
+        raise ValueError('Cannot modify tuple inplace.')
+    # General object/dataclass
+    apply(data.__dict__)
+    return data
+
+
+def is_leaf(data):
+    return (is_numeric(data)
+            or isinstance(data, str)
+            or is_array(data))
+
+def is_leaf_or_device_arr(data):
+    return is_leaf(data) or isinstance(data, DeviceArray)
+
+
+######################
+# [Cuda] <-> [Numpy] #
+######################
+
 @dataclass
 class DeviceArray:
     arr: np.ndarray
@@ -116,46 +155,6 @@ class DeviceArray:
                 raise ValueError(f'Unknown DeviceArray mode: {data.mode}')
         return data
 
-
-def recursive_apply_inplace_with_stop(data, func, stop_cond):
-    """Recursive performs func on the items of data
-    Does operation in-place, i.e. without copying data.
-    stops when stopping criterion is satisfied.
-    """
-    apply = partial(recursive_apply_inplace_with_stop,
-                    func=func,
-                    stop_cond=stop_cond)
-    if (stop_cond(data)):
-        return func(data)
-    elif isinstance(data, Mapping):
-        for k, v in data.items():
-            data[k] = apply(v)
-        return data
-    elif isinstance(data, list):
-        for i, v in enumerate(data):
-            data[i] = apply(v)
-        return data
-    elif isinstance(data, tuple):
-        raise ValueError('Cannot modify tuple inplace.')
-    else:
-        # General object/dataclass
-        apply(data.__dict__)
-        return data
-
-
-def is_leaf(data):
-    return (is_numeric(data)
-            or isinstance(data, str)
-            or is_array(data))
-
-def is_leaf_or_device_arr(data):
-    return is_leaf(data) or isinstance(data, DeviceArray)
-
-
-#####################
-# [Cuda] -> [Numpy] #
-#####################
-
 def to_np(data):
     """Converts an input array to a cpu np array if it is
     either a torch tensor or a cupy array"""
@@ -171,73 +170,5 @@ def jsonify(data):
     method to make it jsonifiable
     """
     if is_array(data):
-        return tonp(data).view('int64').tolist()
+        return to_np(data).view('int64').tolist()
     return data
-
-#####################
-# [Numpy] -> [Cuda] #
-#####################
-
-CPU = 'cpu'
-def devicestr(arr):
-    if isinstance(arr, cp.ndarray):
-        if hasattr(arr, 'device'): # cupy array
-            if arr.device.id >= 0:
-                return f'{arr.device.id}'
-        return CPU
-    elif isinstance(arr, np.ndarray):
-        return CPU
-    elif isinstance(arr, torch.Tensor):
-        if arr.device.index:
-            return f'cuda:{arr.device.index}'
-    return type(arr).__name__
-
-
-def totorch(arr: np.ndarray, device):
-    return torch.from_numpy(arr).to(device)
-
-
-def tocupy(arr: np.ndarray):
-    return cp.array(arr)
-
-
-class Np2Torch:
-    def __init__(self, device_idx: Optional[int] = None):
-        """
-        device_idx = -1 (cpu) or 0+ (gpu)
-        """
-
-        self.device_idx = device_idx or -1
-        self.use_cuda = torch.cuda.is_available() and self.device_idx >= 0
-        self.device = torch.device(
-            f'cuda:{self.device_idx}' if self.use_cuda else 'cpu'
-        )
-
-    def __call__(self, data):
-        if isinstance(data, np.ndarray):
-            return torch.from_numpy(data).to(self.device)
-        return data
-
-
-class Np2Cupy:
-    def __init__(self, device_idx: Optional[int] = None):
-        self.device_idx = device_idx or -1
-
-    def __call__(self, data):
-        if isinstance(data, np.ndarray):
-            with cp.cuda.Device(self.device_idx):
-                return cp.array(data)
-        return data
-
-class Np2SingleCudaDevice:
-    def __init__(self, device_idx: Optional[int] = None):
-        self.device_idx = device_idx or -1
-        self.np2cupy = Np2Cupy(self.device_idx)
-        self.np2torch = Np2Torch(self.device_idx)
-
-    def __call__(self, data, mode):
-        if mode == 'cupy':
-            return self.np2cupy(data)
-        elif mode == 'torch':
-            return self.np2torch(data)
-        raise ValueError(f'Unknown mode {mode}')

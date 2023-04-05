@@ -13,7 +13,6 @@ except ImportError:
 
 import numpy as np
 
-#from .conversion import jsonify, recursive_map, to_nested_mapping, is_array, is_numeric
 from .conversion import (
     DeviceArray,
     to_nested_mapping,
@@ -25,7 +24,6 @@ from .conversion import (
     is_leaf_or_device_arr
 )
 
-TYPEKEY = 'type'
 
 class Cache(ABC):
     @abstractmethod
@@ -37,37 +35,28 @@ class Cache(ABC):
         return NotImplemented
 
 
-def recursive_hash(data, hash_obj):
+def recursive_hash(data, hash_fn):
     """hash_fn should be an incremental hash function"""
-    apply = lambda x, hash_obj: recursive_hash(x, hash_obj)
     if is_numeric(data):
-        hash_obj.update(str(data))
+        hash_fn(str(data))
     elif isinstance(data, str):
-        hash_obj.update(data)
+        hash_fn(data)
     elif is_array(data):
-        hash_obj.update(to_np(data))
+        hash_fn(to_np(data))
     elif isinstance(data, Mapping):
         for k, v in data.items():
-            recursive_hash(k, hash_obj)
-            recursive_hash(v, hash_obj)
+            recursive_hash(k, hash_fn)
+            recursive_hash(v, hash_fn)
     elif isinstance(data, list) or isinstance(data, tuple):
         for v in data:
-            recursive_hash(v, hash_obj)
-    return hash_obj
-
-
-def hash_data_json(data):
-    jsonified = recursive_map(to_nested_mapping(data), jsonify)
-    json_dump = json.dumps(jsonified, sort_keys=True, default=lambda obj: obj.__dict__).encode('utf-8')
-    hash_data = metrohash.hash64_int(json_dump)
-    return hash_data
+            recursive_hash(v, hash_fn)
 
 
 def hash_data(data):
     hash_obj = metrohash.MetroHash64()
-    hash_obj = recursive_hash(
+    recursive_hash(
         to_nested_mapping(data),
-        hash_obj
+        hash_obj.update
     )
     return hash_obj.hexdigest()
 
@@ -105,7 +94,6 @@ class PklCache(Cache):
         with open(self.filepath, 'wb') as f:
             pickle.dump({id_: output}, f)
 
-
     def load(self, data, device_idx=None):
         func, args, kwargs = data
         if not self.filepath.is_file():
@@ -123,7 +111,6 @@ class PklCache(Cache):
                 output = self.load_callback(output)
                 return output
         return None
-
 
     def gen_id(self, func, args, kwargs):
         return f'{func.__name__}({hash_data([list(args), kwargs])})'

@@ -9,8 +9,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from .conversion import Np2Torch, Np2Cupy
-
 
 class NodeState(Enum):
     DEFAULT = auto()
@@ -67,7 +65,6 @@ class Node:
             + f'cache={self.cache}, ' \
             + f'state={self.state}' \
             + ')'
-
 
 
 @dataclass
@@ -134,22 +131,16 @@ class DataPipeline:
 
     def configure_nodes(self, func, nodes=None):
         """
-        func: function to apply to seleted node objects
+        func: inplace function to apply to seleted node objects
         nodes: function to decide to configure the node or not
         (None = all nodes)
         """
         for node in self.graph.nodes:
-            if nodes and node in nodes:
+            if ((nodes is None)
+                 or (nodes is not None and node in nodes)):
                 node_obj = self.graph.nodes[node]['node']
-                self.graph.nodes[node]['node'] = func(node_obj)
-
-    def set_global_cache_dir(self, cache_dir: Path):
-        """Convenience function for setting the cache dirs of all nodes"""
-        for node in self.graph.nodes:
-            cache = self.graph.nodes[node]['node'].cache
-            if cache:
-                cache.cache_dir = cache_dir
-
+                self.graph.nodes[node]['node'] = \
+                    func(node_obj)
 
     def visualize(self):
         """Visualize pipeline as a multipartite networkx graph"""
