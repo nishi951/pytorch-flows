@@ -23,12 +23,13 @@ class Node:
                  func: Callable,
                  cache: Optional[Any] = None,
                  state: NodeState = NodeState.DEFAULT,
-                 runtime: Optional[dict] = None,
+                 device_idx: Optional[int] = None
 
     ):
         self.func = func
         self.cache = cache
         self.state = state
+        self.device_idx = device_idx
 
     def __call__(self, *args, **kwargs):
         if self.state == NodeState.SKIP:
@@ -42,6 +43,7 @@ class Node:
                 # Try to load from the cache
                 output = self.cache.load(
                     data=(self.func, args, kwargs),
+                    device_idx=self.device_idx
                 )
                 if output is not None:
                     return output
@@ -99,6 +101,10 @@ class DataPipeline:
         return node
 
     def configure_deps(self, targets, reruns):
+        """
+        targets: list of nodes whose outputs we want (None = all nodes)
+        reruns: list of nodes to force rerun
+        """
         assert nx.is_directed_acyclic_graph(self.graph)
         if len(targets) == 0 :
             return
@@ -125,6 +131,17 @@ class DataPipeline:
                 )
 
         return rungraph
+
+    def configure_nodes(self, func, nodes=None):
+        """
+        func: function to apply to seleted node objects
+        nodes: function to decide to configure the node or not
+        (None = all nodes)
+        """
+        for node in self.graph.nodes:
+            if nodes and node in nodes:
+                node_obj = self.graph.nodes[node]['node']
+                self.graph.nodes[node]['node'] = func(node_obj)
 
     def set_global_cache_dir(self, cache_dir: Path):
         """Convenience function for setting the cache dirs of all nodes"""

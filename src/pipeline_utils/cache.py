@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-import functools
+from functools import partial
 import metrohash
 import json
 from pathlib import Path
@@ -72,7 +72,68 @@ def hash_data(data):
     return hash_obj.hexdigest()
 
 
+class PklCache(Cache):
+    def __init__(self,
+                 name: Optional[str] = None,
+                 cache_dir: Optional[Path] = None,
+                 load_callback: Optional[Callable] = None,
+                 store_callback: Optional[Callable] = None,
+    ):
+        """
+
+        callbacks are for moving on/off devices, etc.
+        """
+        self.filename = name or 'cache.pkl'
+        self.cache_dir = cache_dir or Path('.')
+        self.load_callback = load_callback or (lambda x: x)
+        self.store_callback = store_callback or (lambda x: x)
+
+    @property
+    def filepath(self) -> Path:
+        return self.cache_dir/self.filename
+
+    def store(self, data):
+        """Stores as np arrays, even if inputs are ints or strs, etc."""
+        func, args, kwargs, output = data
+        id_ = self.gen_id(func, args, kwargs)
+        # Store output data types (modifies in place)
+        output = self.store_callback(output)
+        output = recursive_apply_inplace_with_stop(
+            output, DeviceArray.infer, is_leaf
+        )
+        self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.filepath, 'wb') as f:
+            pickle.dump({id_: output}, f)
+
+
+    def load(self, data, device_idx=None):
+        func, args, kwargs = data
+        if not self.filepath.is_file():
+            return None
+        id_ = self.gen_id(func, args, kwargs)
+        with open(self.filepath, 'rb') as f:
+            cached = pickle.load(f)
+            if id_ in cached:
+                output = cached[id_]
+                unpack = partial(DeviceArray.unpack,
+                                 device_idx=device_idx)
+                output = recursive_apply_inplace_with_stop(
+                    output, unpack, is_leaf_or_device_arr
+                )
+                output = self.load_callback(output)
+                return output
+        return None
+
+
+    def gen_id(self, func, args, kwargs):
+        return f'{func.__name__}({hash_data([list(args), kwargs])})'
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.filepath})'
+
+
 class NpzCache(Cache):
+    """Deprecated in favor of PklCache"""
     def __init__(self,
                  name: Optional[str] = None,
                  cache_dir: Optional[Path] = None,
@@ -118,67 +179,6 @@ class NpzCache(Cache):
 
     def gen_id(self, func, args, kwargs):
         return f'{func.__name__}({hash_data((args, kwargs))})'
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.filepath})'
-
-
-class PklCache(Cache):
-
-    def __init__(self,
-                 name: Optional[str] = None,
-                 cache_dir: Optional[Path] = None,
-                 load_callback: Optional[Callable] = None,
-                 store_callback: Optional[Callable] = None,
-    ):
-        """
-
-        callbacks are for moving on/off devices, etc.
-        """
-        self.filename = name or 'cache.pkl'
-        self.cache_dir = cache_dir or Path('.')
-        self.load_callback = load_callback or (lambda x: x)
-        self.store_callback = store_callback or (lambda x: x)
-
-    @property
-    def filepath(self) -> Path:
-        return self.cache_dir/self.filename
-
-    def store(self, data):
-        """Stores as np arrays, even if inputs are ints or strs, etc."""
-        func, args, kwargs, output = data
-        id_ = self.gen_id(func, args, kwargs)
-        # Store output data types (modifies in place)
-        output = self.store_callback(output)
-        output = recursive_apply_inplace_with_stop(
-            output, DeviceArray.infer, is_leaf
-        )
-        self.filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.filepath, 'wb') as f:
-            pickle.dump({id_: output}, f)
-
-
-    def load(self, data):
-        func, args, kwargs = data
-        if not self.filepath.is_file():
-            return None
-        id_ = self.gen_id(func, args, kwargs)
-        with open(self.filepath, 'rb') as f:
-            cached = pickle.load(f)
-            if id_ in cached:
-                output = cached[id_]
-                output = recursive_apply_inplace_with_stop(
-                    output, DeviceArray.unpack, is_leaf_or_device_arr
-                )
-                output = self.load_callback(output)
-                return output
-        return None
-
-
-    def gen_id(self, func, args, kwargs):
-        return f'{func.__name__}({hash_data([list(args), kwargs])})'
-
-    @staticmethod
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.filepath})'
