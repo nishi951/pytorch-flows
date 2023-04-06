@@ -68,10 +68,6 @@ class PklCache(Cache):
                  load_callback: Optional[Callable] = None,
                  store_callback: Optional[Callable] = None,
     ):
-        """
-
-        callbacks are for moving on/off devices, etc.
-        """
         self.filename = name or 'cache.pkl'
         self.cache_dir = cache_dir or Path('.')
         self.load_callback = load_callback or (lambda x: x)
@@ -87,8 +83,15 @@ class PklCache(Cache):
             data, DeviceArray.infer, is_leaf
         )
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.filepath, 'wb') as f:
-            pickle.dump({key: data}, f)
+
+        with open(self.filepath, 'rb+') as f:
+            try:
+                cached = pickle.load(f)
+                cached[key] = data
+                pickle.dump(cached, f)
+            except:
+                pickle.dump({key: data}, f)
+
         data = recursive_apply_inplace_with_stop(
             data, DeviceArray.unpack, is_leaf_or_device_arr
         )

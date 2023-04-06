@@ -95,7 +95,10 @@ def recursive_apply_inplace_with_stop(data, func, stop_cond):
             data[i] = apply(v)
         return data
     elif isinstance(data, tuple):
-        raise ValueError('Cannot modify tuple inplace.')
+        data = list(data)
+        for i, v in enumerate(data):
+            data[i] = apply(v)
+        return data
     # General object/dataclass
     apply(data.__dict__)
     return data
@@ -123,7 +126,7 @@ class DeviceArray:
     @classmethod
     def infer(cls, data):
         if isinstance(data, torch.Tensor):
-            return cls(data.cpu().numpy(), data.device, 'torch')
+            return cls(data.detach().cpu().numpy(), data.device, 'torch')
         elif (cp != np) and isinstance(data, cp.ndarray):
             return cls(data.get(), data.device, 'cupy')
         elif isinstance(data, np.ndarray):
@@ -159,7 +162,7 @@ def to_np(data):
     """Converts an input array to a cpu np array if it is
     either a torch tensor or a cupy array"""
     if isinstance(data, torch.Tensor):
-        return data.cpu().numpy()
+        return data.detach().cpu().numpy()
     elif (cp != np) and isinstance(data, cp.ndarray):
         return data.get()
     return data
