@@ -136,19 +136,20 @@ class DataPipeline:
         reruns: list of nodes to force rerun
         """
         assert nx.is_directed_acyclic_graph(self.graph)
-        if len(targets) == 0 :
-            return
+        if len(targets) != 0:
+            all_ancestors = set()
+            for target in targets:
+                all_ancestors.update(nx.ancestors(self.graph, target))
+                all_ancestors.add(target)
 
-        all_ancestors = set()
-        for target in targets:
-            all_ancestors.update(nx.ancestors(self.graph, target))
-            all_ancestors.add(target)
+            for node in self.graph.nodes:
+                if node not in all_ancestors:
+                    self.graph.nodes[node]['node'].state = NodeState.SKIP
 
-        for node in self.graph.nodes:
-            if node not in all_ancestors:
-                self.graph.nodes[node]['node'].state = NodeState.SKIP
+            rungraph = self.graph.subgraph(all_ancestors)
+        else:
+            rungraph = self.graph
 
-        rungraph = self.graph.subgraph(all_ancestors)
         for rerun in reruns:
             if rerun in rungraph:
                 self.graph.nodes[rerun]['node'].state = NodeState.RERUN
@@ -185,7 +186,7 @@ class DataPipeline:
             for node, dist in shortest_to_root.items():
                 if dist < shortest_paths[node]['to_root']:
                     shortest_paths[node]['to_root']= dist
-            shortest_paths[root]['to_root'] =0
+            shortest_paths[root]['to_root'] = 0
         nx.set_node_attributes(self.graph, shortest_paths)
         pos = nx.multipartite_layout(
             self.graph,
