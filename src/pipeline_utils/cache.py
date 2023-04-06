@@ -89,6 +89,9 @@ class PklCache(Cache):
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(self.filepath, 'wb') as f:
             pickle.dump({key: data}, f)
+        data = recursive_apply_inplace_with_stop(
+            data, DeviceArray.unpack, is_leaf_or_device_arr
+        )
 
     def load(self, key, device_idx=None):
         if not self.filepath.is_file():
@@ -113,7 +116,8 @@ class PklCache(Cache):
 class NpzCache(Cache):
     """Deprecated in favor of PklCache"""
     def __init__(self,
-                 name: Optional[str] = None,
+                 name: Optional[str
+] = None,
                  cache_dir: Optional[Path] = None,
                  load_callback: Optional[Callable] = None,
                  store_callback: Optional[Callable] = None,
