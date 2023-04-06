@@ -56,12 +56,12 @@ class Node:
             return None
 
         if self.cache:
+            key = self.get_key(*args, **kwargs)
             output = None
             if self.state == NodeState.RERUN:
                 output = self.func(*args, **kwargs)
             else:
                 # Try to load from the cache
-                key = self.get_key(*args, **kwargs)
                 if self.verbose:
                     print(f'Loading cached output of {self.func.__name__}')
                     if hasattr(self.cache, 'filepath'):

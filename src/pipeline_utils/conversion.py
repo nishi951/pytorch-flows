@@ -125,7 +125,7 @@ class DeviceArray:
         if isinstance(data, torch.Tensor):
             return cls(data.cpu().numpy(), data.device, 'torch')
         elif (cp != np) and isinstance(data, cp.ndarray):
-            return cls(data.get(), data.Device, 'cupy')
+            return cls(data.get(), data.device, 'cupy')
         elif isinstance(data, np.ndarray):
             return cls(data, None, 'numpy')
         return data
