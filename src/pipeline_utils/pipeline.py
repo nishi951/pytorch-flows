@@ -21,13 +21,15 @@ class Node:
                  func: Callable,
                  cache: Optional[Any] = None,
                  state: NodeState = NodeState.DEFAULT,
-                 device_idx: Optional[int] = None
+                 device_idx: Optional[int] = None,
+                 verbose: bool = False,
 
     ):
         self.func = func
         self.cache = cache
         self.state = state
         self.device_idx = device_idx
+        self.verbose = verbose
 
     def __call__(self, *args, **kwargs):
         if self.state == NodeState.SKIP:
@@ -39,13 +41,20 @@ class Node:
                 output = self.func(*args, **kwargs)
             else:
                 # Try to load from the cache
+                if self.verbose:
+                    print(f'Loading cached output of {self.func.__name__}')
+                    if hasattr(self.cache, 'filepath'):
+                        print(f'> Attempting load from {self.cache.filepath}')
                 output = self.cache.load(
                     data=(self.func, args, kwargs),
                     device_idx=self.device_idx
                 )
                 if output is not None:
+                    if self.verbose:
+                        print('> Load succeeded.')
                     return output
-
+                if self.verbose:
+                    print('> Load failed, recomputing...')
                 output = self.func(*args, **kwargs)
             # Add to the cache
             self.cache.store(
