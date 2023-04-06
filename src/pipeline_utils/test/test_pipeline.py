@@ -46,7 +46,8 @@ def step2(step1: int):
 
 @pipeline.add(
     deps=[step1a, step2, step1b],
-    cache=PklCache('step3.pkl')
+    cache=PklCache('step3.pkl'),
+    ignore_args=['step3_arg'], # Dangerous - causes cache to trigger even if step3_arg changes
 )
 def step3(step1a: int, step2: int, step1b: int, step3_arg:int):
     print(f'Running step 3... (received step1: {step1a} and step2: {step2} and step1b: {step1b})')
@@ -74,8 +75,14 @@ def main():
         if node.cache is not None:
             node.cache.cache_dir = opt.cache_dir
         return node
+    def set_verbose(node):
+        node.verbose = True
+        return node
     pipeline.configure_nodes(func=set_device_idx)
     pipeline.configure_nodes(func=set_cache_dir)
+    pipeline.configure_nodes(func=set_verbose)
+    import matplotlib
+    matplotlib.use('WebAgg')
     pipeline.visualize()
 
     step1a_out = step1a()

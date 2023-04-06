@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
+import functools
 import hashlib
+import inspect
 import json
 from pathlib import Path
 from typing import Any, Callable, Optional, List, Type, Union
@@ -9,6 +11,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
+from .cache import hash_data
 
 class NodeState(Enum):
     DEFAULT = auto()
@@ -21,15 +24,32 @@ class Node:
                  func: Callable,
                  cache: Optional[Any] = None,
                  state: NodeState = NodeState.DEFAULT,
+                 ignore_args: Optional[list] = None,
                  device_idx: Optional[int] = None,
                  verbose: bool = False,
 
     ):
         self.func = func
+        functools.update_wrapper(self, func) # https://github.com/GrahamDumpleton/wrapt/blob/develop/blog/01-how-you-implemented-your-python-decorator-is-wrong.md
         self.cache = cache
         self.state = state
+        self.ignore_args = ignore_args or [] # Ignore for the purpose of caching
         self.device_idx = device_idx
         self.verbose = verbose
+
+    def get_key(self, *args, **kwargs):
+        bound_args = inspect.signature(self.func).bind(*args, **kwargs)
+        bound_args.apply_defaults()
+        args_dict = bound_args.arguments
+        if 'self' in args_dict:
+            args_dict.pop('self')
+
+        for k in self.ignore_args:
+            if k in args_dict:
+                args_dict.pop(k)
+        # Add source code
+        func_src = inspect.getsource(self.func)
+        return f'{self.func.__name__}({hash_data([func_src, args_dict])})'
 
     def __call__(self, *args, **kwargs):
         if self.state == NodeState.SKIP:
@@ -41,12 +61,13 @@ class Node:
                 output = self.func(*args, **kwargs)
             else:
                 # Try to load from the cache
+                key = self.get_key(*args, **kwargs)
                 if self.verbose:
                     print(f'Loading cached output of {self.func.__name__}')
                     if hasattr(self.cache, 'filepath'):
                         print(f'> Attempting load from {self.cache.filepath}')
                 output = self.cache.load(
-                    data=(self.func, args, kwargs),
+                    key=key,
                     device_idx=self.device_idx
                 )
                 if output is not None:
@@ -58,7 +79,8 @@ class Node:
                 output = self.func(*args, **kwargs)
             # Add to the cache
             self.cache.store(
-                data=(self.func, args, kwargs, output),
+                key=key,
+                data=output
             )
 
             return output
@@ -89,10 +111,13 @@ class DataPipeline:
     def add(self, deps, **node_kwargs):
         """Decorator version"""
         def wrapper(func):
-            node = Node(func, **node_kwargs)
-            self.add_node(node, deps)
-            return node
+            return self._add(func, deps, **node_kwargs)
         return wrapper
+
+    def _add(self, func, deps, **node_kwargs):
+        node = Node(func, **node_kwargs)
+        self.add_node(node, deps)
+        return node
 
     def add_node(
             self,
@@ -103,7 +128,6 @@ class DataPipeline:
         self.graph.add_node(node.name, node=node)
         for dep in deps:
             self.graph.add_edge(dep.name, node.name)
-
         return node
 
     def configure_deps(self, targets, reruns):

@@ -27,11 +27,11 @@ from .conversion import (
 
 class Cache(ABC):
     @abstractmethod
-    def store(self, data):
+    def store(self, key, data):
         return NotImplemented
 
     @abstractmethod
-    def load(self, data):
+    def load(self, key):
         return NotImplemented
 
 
@@ -81,39 +81,30 @@ class PklCache(Cache):
     def filepath(self) -> Path:
         return self.cache_dir/self.filename
 
-    def store(self, data):
-        """Stores as np arrays, even if inputs are ints or strs, etc."""
-        func, args, kwargs, output = data
-        id_ = self.gen_id(func, args, kwargs)
-        # Store output data types (modifies in place)
-        output = self.store_callback(output)
-        output = recursive_apply_inplace_with_stop(
-            output, DeviceArray.infer, is_leaf
+    def store(self, key, data):
+        data = self.store_callback(data)
+        data = recursive_apply_inplace_with_stop(
+            data, DeviceArray.infer, is_leaf
         )
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(self.filepath, 'wb') as f:
-            pickle.dump({id_: output}, f)
+            pickle.dump({key: data}, f)
 
-    def load(self, data, device_idx=None):
-        func, args, kwargs = data
+    def load(self, key, device_idx=None):
         if not self.filepath.is_file():
             return None
-        id_ = self.gen_id(func, args, kwargs)
         with open(self.filepath, 'rb') as f:
             cached = pickle.load(f)
-            if id_ in cached:
-                output = cached[id_]
+            if key in cached:
+                data = cached[key]
                 unpack = partial(DeviceArray.unpack,
                                  device_idx=device_idx)
-                output = recursive_apply_inplace_with_stop(
-                    output, unpack, is_leaf_or_device_arr
+                data = recursive_apply_inplace_with_stop(
+                    data, unpack, is_leaf_or_device_arr
                 )
-                output = self.load_callback(output)
-                return output
+                data = self.load_callback(data)
+                return data
         return None
-
-    def gen_id(self, func, args, kwargs):
-        return f'{func.__name__}({hash_data([list(args), kwargs])})'
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.filepath})'
