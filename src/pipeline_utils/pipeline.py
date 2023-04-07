@@ -172,7 +172,7 @@ class DataPipeline:
 
     def set_verbose(self, verbose: bool):
         def configure(node):
-            node.verbose = opt.verbose
+            node.verbose = verbose
             return node
         self.configure_nodes(func=configure)
 
