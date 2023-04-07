@@ -84,13 +84,14 @@ class PklCache(Cache):
         )
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(self.filepath, 'wb+') as f:
-            try:
-                cached = pickle.load(f)
-                cached[key] = data
-                pickle.dump(cached, f)
-            except:
-                pickle.dump({key: data}, f)
+        cache = {}
+        if self.filepath.is_file():
+            with open(self.filepath, 'rb') as f:
+                cache = pickle.load(f)
+                assert isinstance(cache, dict)
+        cache[key] = data
+        with open(self.filepath, 'wb') as f:
+            pickle.dump(cache, f)
 
         data = recursive_apply_inplace_with_stop(
             data, DeviceArray.unpack, is_leaf_or_device_arr

@@ -57,6 +57,8 @@ class Node:
 
         if self.cache:
             key = self.get_key(*args, **kwargs)
+            if self.verbose:
+                print(f'> key: {key}')
             output = None
             if self.state == NodeState.RERUN:
                 output = self.func(*args, **kwargs)
