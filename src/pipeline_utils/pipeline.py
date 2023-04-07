@@ -22,6 +22,7 @@ class NodeState(Enum):
 class Node:
     def __init__(self,
                  func: Callable,
+                 name: Optional[str] = None,
                  cache: Optional[Any] = None,
                  state: NodeState = NodeState.DEFAULT,
                  ignore_args: Optional[list] = None,
@@ -30,6 +31,7 @@ class Node:
 
     ):
         self.func = func
+        self.name = name or self.func.__name__
         functools.update_wrapper(self, func) # https://github.com/GrahamDumpleton/wrapt/blob/develop/blog/01-how-you-implemented-your-python-decorator-is-wrong.md
         self.cache = cache
         self.state = state
@@ -88,13 +90,9 @@ class Node:
             return output
         return self.func(*args, **kwargs)
 
-    @property
-    def name(self):
-        return self.func.__name__
-
     def __repr__(self):
         return f'{self.__class__.__name__}(' \
-            + f'func={self.name}, ' \
+            + f'func={self.func.__name__}, ' \
             + f'cache={self.cache}, ' \
             + f'state={self.state}' \
             + ')'
@@ -129,6 +127,7 @@ class DataPipeline:
 
         self.graph.add_node(node.name, node=node)
         for dep in deps:
+            assert isinstance(dep, Node), f'dep {dep} must be a node'
             self.graph.add_edge(dep.name, node.name)
         return node
 

@@ -17,6 +17,7 @@ class Config:
     device_idx: int = 0
     step3_arg: int = 3
     cache_dir: Path = Path('cache')
+    verbose: bool = False
 
 
 pipeline = DataPipeline()
@@ -67,23 +68,15 @@ def step4b(step2):
 
 def main():
     opt = tyro.cli(Config)
+    # >>> Pipeline Setup >>>
     pipeline.configure_deps(opt.targets, opt.reruns)
-    def set_device_idx(node):
-        node.device_idx = opt.device_idx
-        return node
-    def set_cache_dir(node):
-        if node.cache is not None:
-            node.cache.cache_dir = opt.cache_dir
-        return node
-    def set_verbose(node):
-        node.verbose = True
-        return node
-    pipeline.configure_nodes(func=set_device_idx)
-    pipeline.configure_nodes(func=set_cache_dir)
-    pipeline.configure_nodes(func=set_verbose)
+    pipeline.set_cache_dir(opt.cache_dir)
+    pipeline.set_device_idx(opt.device_idx)
+    pipeline.set_verbose(opt.verbose)
     import matplotlib
     matplotlib.use('WebAgg')
     pipeline.visualize()
+    # <<< End Pipeline Setup <<<
 
     step1a_out = step1a()
     step1b_out = step1b()

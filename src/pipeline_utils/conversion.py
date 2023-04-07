@@ -137,23 +137,28 @@ class DeviceArray:
     @classmethod
     def unpack(cls, data, device_idx=None):
         if isinstance(data, DeviceArray):
-            if data.mode == 'torch':
+            if data.mode == 'numpy':
+                return data.arr
+            elif data.mode == 'torch':
                 if device_idx is None:
                     device = data.device
                 else:
                     device = torch.device(
-                        f'cuda:{device_idx}' if torch.cuda.is_available() else 'cpu'
+                        f'cuda:{device_idx}'
+                        if (torch.cuda.is_available()
+                            and device_idx >= 0)
+                        else 'cpu'
                     )
                 return torch.from_numpy(data.arr).to(device)
             elif data.mode == 'cupy':
                 if device_idx is None:
                     device = data.device
-                else:
+                elif device_idx >= 0:
                     device = cp.cuda.Device(device_idx)
-                with device:
-                    return cp.array(data.arr)
-            elif data.mode == 'numpy':
-                return data.arr
+                    with device:
+                        return cp.array(data.arr)
+                else:
+                    return data.arr # Numpy
             else:
                 raise ValueError(f'Unknown DeviceArray mode: {data.mode}')
         return data

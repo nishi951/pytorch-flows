@@ -42,7 +42,7 @@ def recursive_hash(data, hash_fn):
     elif isinstance(data, str):
         hash_fn(data)
     elif is_array(data):
-        hash_fn(to_np(data))
+        hash_fn(np.ascontiguousarray(to_np(data)))
     elif isinstance(data, Mapping):
         for k, v in data.items():
             recursive_hash(k, hash_fn)
