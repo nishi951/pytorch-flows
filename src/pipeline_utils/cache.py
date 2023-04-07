@@ -84,7 +84,7 @@ class PklCache(Cache):
         )
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(self.filepath, 'rb+') as f:
+        with open(self.filepath, 'wb+') as f:
             try:
                 cached = pickle.load(f)
                 cached[key] = data
