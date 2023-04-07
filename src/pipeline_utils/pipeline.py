@@ -163,6 +163,25 @@ class DataPipeline:
 
         return rungraph
 
+    def set_cache_dir(self, cache_dir: Path):
+        def configure(node):
+            if node.cache is not None:
+                node.cache.cache_dir = cache_dir
+            return node
+        self.configure_nodes(func=configure)
+
+    def set_verbose(self, verbose: bool):
+        def configure(node):
+            node.verbose = opt.verbose
+            return node
+        self.configure_nodes(func=configure)
+
+    def set_device_idx(self, device_idx: int):
+        def configure(node):
+            node.device_idx = device_idx
+            return node
+        self.configure_nodes(func=configure)
+
     def configure_nodes(self, func, nodes=None):
         """
         func: inplace function to apply to seleted node objects

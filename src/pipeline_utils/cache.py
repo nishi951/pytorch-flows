@@ -119,8 +119,7 @@ class PklCache(Cache):
 class NpzCache(Cache):
     """Deprecated in favor of PklCache"""
     def __init__(self,
-                 name: Optional[str
-] = None,
+                 name: Optional[str] = None,
                  cache_dir: Optional[Path] = None,
                  load_callback: Optional[Callable] = None,
                  store_callback: Optional[Callable] = None,
