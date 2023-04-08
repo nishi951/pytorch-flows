@@ -59,6 +59,8 @@ def to_nested_mapping(data):
         return type(data)({k: apply(v) for k, v in data.items()})
     elif isinstance(data, list) or isinstance(data, tuple):
         return type(data)(apply(v) for v in data)
+    elif hasattr(data, 'to_nested_mapping'):
+        return apply(data.to_nested_mapping)
     return apply(data.__dict__)
 
 
