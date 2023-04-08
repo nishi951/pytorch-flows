@@ -52,7 +52,8 @@ def to_nested_mapping(data):
     apply = lambda x: to_nested_mapping(x)
     if (is_numeric(data)
         or isinstance(data, str)
-        or is_array(data)):
+        or is_array(data)
+        or data is None):
         return data
     elif isinstance(data, Mapping):
         return type(data)({k: apply(v) for k, v in data.items()})
