@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flows-workspace"
-version = "0.6.14"
+version = "0.6.15"
 description = "A simple, configurable, flow-based experiment manager"
 authors = [
   {email = "nishimuramarky@yahoo.com"},

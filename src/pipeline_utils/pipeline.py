@@ -211,6 +211,7 @@ class DataPipeline:
         pos = nx.multipartite_layout(
             self.graph,
             subset_key='to_root',
+            align='horizontal'
         )
 
         # Color
