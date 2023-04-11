@@ -158,10 +158,10 @@ class DeviceArray:
                     device = data.device
                 elif device_idx >= 0:
                     device = cp.cuda.Device(device_idx)
-                    with device:
-                        return cp.array(data.arr)
                 else:
                     return data.arr # Numpy
+                with device:
+                    return cp.array(data.arr)
             else:
                 raise ValueError(f'Unknown DeviceArray mode: {data.mode}')
         return data
