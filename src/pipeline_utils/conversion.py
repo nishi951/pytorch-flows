@@ -87,7 +87,7 @@ def recursive_apply_inplace_with_stop(data, func, stop_cond):
     apply = partial(recursive_apply_inplace_with_stop,
                     func=func,
                     stop_cond=stop_cond)
-    elif (stop_cond(data)):
+    if (stop_cond(data)):
         return func(data)
     elif isinstance(data, Mapping):
         for k, v in data.items():
