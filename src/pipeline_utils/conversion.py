@@ -87,7 +87,7 @@ def recursive_apply_inplace_with_stop(data, func, stop_cond):
     apply = partial(recursive_apply_inplace_with_stop,
                     func=func,
                     stop_cond=stop_cond)
-    if (stop_cond(data)):
+    elif (stop_cond(data)):
         return func(data)
     elif isinstance(data, Mapping):
         for k, v in data.items():
@@ -111,7 +111,8 @@ def recursive_apply_inplace_with_stop(data, func, stop_cond):
 def is_leaf(data):
     return (is_numeric(data)
             or isinstance(data, str)
-            or is_array(data))
+            or is_array(data)
+            or data is None)
 
 def is_leaf_or_device_arr(data):
     return is_leaf(data) or isinstance(data, DeviceArray)
