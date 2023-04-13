@@ -103,7 +103,8 @@ def recursive_apply_inplace_with_stop(data, func, stop_cond):
             data[i] = apply(v)
         return data
     # General object/dataclass
-    apply(data.__dict__)
+    for k, v in data.__dict__.items():
+        setattr(data, k, apply(v))
     return data
 
 
