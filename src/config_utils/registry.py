@@ -96,7 +96,16 @@ class _Registry:
             cls = self._clsname2cls[clsname]
             config = self.configure_submodules(struct.__dict__)
             try:
-                return cls(**config)
+                try:
+                    # Fully specified
+                    bound_args = inspect.signature(cls).bind(**config)
+                    bound_args.apply_defaults()
+                    return cls(**bound_args.arguments)
+                except TypeError as e:
+                    # Partially specified
+                    bound_args = inspect.signature(cls).bind_partial(**config)
+                    bound_args.apply_defaults()
+                    return functools.partial(cls, **bound_args.arguments)
             except TypeError as e:
                 print(f'Error when initializing {cls} from config '
                     + f'{type(config).__name__}')
