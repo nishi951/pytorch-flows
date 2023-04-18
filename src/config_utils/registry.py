@@ -15,6 +15,7 @@ class _Registry:
     _cfgname2cfg = {}
     _cfgname2clsname = {}
     _clsname2cfgname = {}
+    _no_instantiate = set() # For classes not to instantiate
 
     def register(
             self, cls: Type
@@ -30,7 +31,7 @@ class _Registry:
         return cls
 
     def register_with_config(
-            self, *args
+            self, *args, **kwargs
     ) -> Union[Type, Callable[[Type], Type]]:
         """Register a class with a config
         """
@@ -44,7 +45,9 @@ class _Registry:
         finally:
             del frame
 
-        def wrapper(cls, config_name):
+        def wrapper(cls, config_name=None, instantiate=True):
+            if config_name is None:
+                config_name = cls.__name__ + 'Config'
             try:
                 config_class = class_lookup[config_name]
             except KeyError as e:
@@ -62,20 +65,22 @@ class _Registry:
             self._cfgname2cfg[config_name] = config_class
             self._cfgname2clsname[config_name] = cls.__name__
             self._clsname2cfgname[cls.__name__] = config_name
+            if not instantiate:
+                self._no_instantiate.add(cls.__name__)
             return cls
 
         if len(args) == 1 and callable(args[0]):
             # Called without arguments
             cls = args[0]
-            config_name = cls.__name__ + 'Config'
-            wrapper(cls, config_name)
+            wrapper(cls)
             return cls
 
-
-        elif isinstance(args[0], str):
+        elif len(args) >= 0:
             # Called with arguments
-            config_name = args[0]
-            return functools.partial(wrapper, config_name=config_name)
+            bound_args = inspect.signature(wrapper).bind_partial(*args, **kwargs)
+            bound_args.apply_defaults()
+            args_dict = bound_args.arguments
+            return functools.partial(wrapper, **args_dict)
         # Find the config with this name
         else:
             raise ValueError(
@@ -84,7 +89,8 @@ class _Registry:
 
     def configure_submodules(self, struct):
         if (is_dataclass(struct)
-            and type(struct).__name__ in self._cfgname2clsname):
+            and type(struct).__name__ in self._cfgname2clsname
+            and type(struct).__name__ not in self._no_instantiate):
             cfgname = type(struct).__name__
             clsname = self._cfgname2clsname[cfgname]
             cls = self._clsname2cls[clsname]
